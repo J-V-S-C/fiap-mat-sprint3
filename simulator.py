@@ -1,4 +1,3 @@
-"""Cálculos numéricos usados pelo painel matemático."""
 from typing import Callable
 
 import numpy as np
