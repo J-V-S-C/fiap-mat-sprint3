@@ -1,4 +1,5 @@
 from typing import Callable
+from math import isfinite
 
 import numpy as np
 
@@ -49,3 +50,22 @@ def interpretation(value: float, rate: float, limit: float) -> str:
         f"No instante analisado vale {value:.2f}% e está a {distance:.2f} "
         f"ponto(s) do limite de {limit:.0f}%."
     )
+
+
+def decision(value: float, rate: float, limit: float, cumulative_deficit: float,
+             reference_deficit: float, critical_value: float = 85.0) -> str:
+    """Classificação didática baseada em tendência, limite e déficit acumulado.
+
+    O déficit de referência usa o cenário sem intervenção no mesmo intervalo.
+    Não corresponde a uma recomendação clínica automática.
+    """
+    values = (value, rate, limit, cumulative_deficit, reference_deficit, critical_value)
+    if not all(isfinite(v) for v in values):
+        raise ValueError("Os indicadores precisam ser finitos.")
+    if cumulative_deficit < 0 or reference_deficit < 0:
+        raise ValueError("O déficit acumulado não pode ser negativo.")
+    if value <= critical_value or limit <= critical_value or rate < -0.05:
+        return "Em atenção"
+    if rate > 0.05 and cumulative_deficit < reference_deficit:
+        return "Em evolução"
+    return "Estável / acompanhar"

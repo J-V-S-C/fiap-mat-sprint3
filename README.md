@@ -1,69 +1,44 @@
-# Painel Matemático — Crise Asmática
+# Painel Matemático — DPS Sprint 4
 
-Dashboard interativo desenvolvido para a **Sprint 3 de Differentiated Problem
-Solving** do Challenge FIAP + Hospital Moinhos de Vento.
+Entrega de **Differentiated Problem Solving** do Challenge FIAP + Hospital Moinhos de Vento. Esta versão evolui o painel de limites e derivadas da Sprint 3: acrescenta **integrais**, comparação de cenários e uma **regra de decisão**. O [PDF único para submissão](ENTREGA_DPS_SPRINT4.pdf) apresenta os critérios da Sprint 4 com gráficos e interpretação.
 
-A aplicação usa **limites e derivadas** para analisar a evolução didática da
-saturação de oxigênio (SpO₂) de Carlos Mendes, paciente do caso de crise
-asmática apresentado no MVP da equipe.
+## Relação com o MVP
 
-> Os modelos são exclusivamente educacionais. Não representam previsões
-> clínicas e não substituem protocolos ou decisões de profissionais da saúde.
+O [Simulador Clínico publicado](https://simulador-clinico-front.vercel.app) inclui o caso **“Síndrome coronariana - caso didático”**. No código desse caso, a saturação de oxigênio começa em **90%** e o valor crítico configurado é **85%**. Esses dois números são a base coerente usada aqui. O painel Streamlit contém um acesso ao simulador e compara duas trajetórias didáticas para ajudar a explicar a evolução do indicador e uma decisão no exercício.
 
-## Funcionalidades
+**Limite da integração:** este painel é um módulo complementar ligado ao MVP pelo caso e pelo acesso à aplicação. Ele não lê o estado de uma tentativa real da API e não altera o resultado clínico do simulador. As curvas exponenciais e o cenário após oxigênio são hipóteses matemáticas, não medições de usuários ou pacientes nem reprodução das regras discretas do backend. A referência de 100% na integral serve apenas para comparar áreas, não é uma meta clínica.
 
-- comparação entre piora sem oxigênio e recuperação com oxigênio;
-- seleção do período e do instante analisado;
-- gráfico interativo da SpO₂ ao longo do tempo;
-- visualização da derivada em pontos percentuais por minuto;
-- indicação do limite assintótico de cada cenário;
-- interpretação automática da tendência e apoio à decisão no exercício.
+## Modelo e dados usados
 
-## Modelo matemático
+Variáveis: `t` é o tempo em minutos (`0 ≤ t ≤ 10` na análise); `S(t)` é a SpO₂ em %; `S'(t)` é a taxa de variação em pontos percentuais por minuto; `D(T)` é o déficit acumulado em pontos percentuais × minuto.
 
-As variáveis utilizadas são:
+| Cenário | Função `S(t)` | Derivada `S'(t)` | Limite quando `t → ∞` |
+| --- | --- | --- | ---: |
+| Sem intervenção | `85 + 5e^(-t/6)` | `-(5/6)e^(-t/6)` | 85% |
+| Após oxigênio | `97 - 7e^(-t/3)` | `(7/3)e^(-t/3)` | 97% |
 
-- `t`: tempo transcorrido, em minutos, com `t ≥ 0`;
-- `S(t)`: saturação de oxigênio no instante `t`, em porcentagem;
-- `S'(t)`: taxa de variação da saturação, em pontos percentuais por minuto.
+Ambos partem de 90%. O limite descreve a tendência matemática se o tempo continuasse; a simulação do produto dura no máximo 10 minutos, então ele não é um desfecho observado.
 
-### Sem oxigênio
+Para analisar o **acúmulo**, integramos o déficit em relação a uma referência comum:
 
 ```text
-S(t)  = 82 + 10e^(-t/6)
-S'(t) = -(10/6)e^(-t/6)
-lim S(t) = 82%, quando t → ∞
+D(T) = ∫[0,T] (100 - S(t)) dt
+
+Sem intervenção: D(T) = 15T - 30(1 - e^(-T/6))
+Após oxigênio:   D(T) =  3T + 21(1 - e^(-T/3))
 ```
 
-A derivada negativa indica queda da saturação. A curva começa em 92% e se
-aproxima de 82%.
+Em `T = 10` minutos, o painel mostra a SpO₂ no instante, a derivada, o limite e o déficit acumulado dos dois cenários. A área menor após a intervenção representa menos déficit **dentro do modelo**. Os dados de entrada são os valores iniciais e críticos do caso do MVP mais parâmetros didáticos explícitos; não houve ajuste a observações clínicas ou a feedback de estudantes.
 
-### Com oxigênio
+## Regra de decisão
 
-```text
-S(t)  = 98 - 6e^(-t/3)
-S'(t) = 2e^(-t/3)
-lim S(t) = 98%, quando t → ∞
-```
+O painel classifica o cenário selecionado no instante escolhido:
 
-A derivada positiva indica recuperação. A curva também começa em 92%, mas se
-aproxima de 98%.
+1. **Em atenção:** SpO₂ ≤ 85%, limite ≤ 85% ou derivada < −0,05 pp/min.
+2. **Em evolução:** derivada > +0,05 pp/min e déficit acumulado menor que o cenário sem intervenção no mesmo intervalo.
+3. **Estável / acompanhar:** demais situações.
 
-A função exponencial foi escolhida porque representa uma mudança mais intensa
-no início que desacelera à medida que a variável se aproxima de um valor
-estável. Os parâmetros não foram ajustados com dados clínicos reais.
-
-## Relação com os critérios da Sprint 3
-
-| Critério | Aplicação no projeto |
-| --- | --- |
-| Fenômeno analisado | Evolução da SpO₂ em uma crise asmática |
-| Variáveis | Tempo, saturação e taxa de variação |
-| Função matemática | Dois modelos exponenciais |
-| Limite e derivada | Estabilização e velocidade da mudança |
-| Significado | Piora, recuperação ou estabilização |
-| Interface | Gráficos, métricas, linha de limite e ponto selecionado |
-| Apoio à decisão | O sinal da derivada traduz a tendência do cenário |
+Os limiares de derivada são convenções para a visualização didática, não critérios assistenciais. A regra combina tendência, taxa de mudança e acúmulo; sua implementação está em `simulator.py` e sua apresentação está em `app.py`.
 
 ## Como executar
 
@@ -76,49 +51,33 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-No Windows, ative o ambiente com:
+No Windows, ative o ambiente com `.venv\Scripts\activate`. Abra o endereço local informado pelo Streamlit. O painel permite ajustar período, instante e cenário. Ele não exige credenciais ou chave de API.
 
-```powershell
-.venv\Scripts\activate
-```
-
-Depois, acesse o endereço local exibido pelo Streamlit.
-
-## Testes
+Para verificar os cálculos e recriar o PDF:
 
 ```bash
 python -m unittest -v
+python generate_report.py
 ```
 
-Os testes verificam os valores iniciais, a aproximação aos limites, o sinal das
-derivadas, o cálculo na borda do domínio e a validação de entradas.
+O arquivo gerado é `ENTREGA_DPS_SPRINT4.pdf`. O script usa somente as dependências de `requirements.txt` e os modelos deste repositório.
 
-## Deploy
+## Roteiro de apresentação
 
-O projeto está pronto para serviços compatíveis com Streamlit. Configure:
+1. Abra o simulador pelo link do painel e identifique o caso e a SpO₂ inicial de 90%.
+2. No painel, compare as duas curvas até 10 minutos. Explique os limites e o sinal das derivadas.
+3. Compare as áreas acumuladas `D(10)` e sua unidade `pp·min`.
+4. Mostre a classificação de cada cenário e explique a regra.
+5. Descreva a limitação: curvas didáticas não são dados clínicos observados e não comandam o backend.
 
-- arquivo principal: `app.py`;
-- dependências: `requirements.txt`;
-- versão do Python: 3.10 ou superior.
+## Arquivos da entrega
 
-## Estrutura
-
-```text
-.
-├── app.py             # interface, gráficos e apoio à decisão
-├── sample_cases.py    # modelos e configuração dos cenários
-├── simulator.py       # derivada numérica e interpretação
-├── test_simulator.py  # testes automatizados
-├── requirements.txt   # dependências do deploy
-└── README.md           # documentação da entrega
-```
-
-## Roteiro curto para apresentação
-
-1. Abra **Sem oxigênio (piora)** e mostre a curva descendente.
-2. Explique que a derivada negativa indica piora e que o limite é 82%.
-3. Mude para **Com oxigênio (recuperação)**.
-4. Mostre a derivada positiva e a aproximação ao limite de 98%.
-5. Conclua: o limite indica a estabilização esperada e a derivada mostra a
-   direção e a velocidade da mudança.
-
+| Arquivo | Conteúdo |
+| --- | --- |
+| `ENTREGA_DPS_SPRINT4.pdf` | Apresentação única para submissão, com equipe, gráficos, cálculos e análise crítica |
+| `app.py` | Painel interativo |
+| `sample_cases.py` | Curvas e integrais analíticas |
+| `simulator.py` | Derivada numérica e regra de decisão |
+| `test_simulator.py` | Testes dos modelos, integral e classificação |
+| `generate_report.py` | Reprodução do PDF |
+| `INTEGRANTES.txt` | Nomes e RMs da equipe |

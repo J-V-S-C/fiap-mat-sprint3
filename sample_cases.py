@@ -1,54 +1,78 @@
-"""Modelos didáticos para a análise da SpO₂ no caso de crise asmática.
+"""Cenários didáticos de SpO₂ para o caso de síndrome coronariana do MVP.
 
-O instante ``t = 0`` representa o início da observação. Os modelos não são
-previsões médicas: apenas tornam limite e derivada visíveis no simulador.
+O caso do backend começa em 90% e marca 85% como valor crítico. As curvas
+exponenciais abaixo são aproximações para a análise matemática; não reproduzem
+as transições discretas nem a avaliação de condutas do simulador clínico.
 """
+
 from dataclasses import dataclass
-from math import exp
+from math import exp, isfinite
 from typing import Callable
 
 
+CASE_NAME = "Síndrome coronariana - caso didático"
+INITIAL_SPO2 = 90.0
+CRITICAL_SPO2 = 85.0
+REFERENCE_SPO2 = 100.0
+
+
 def _validate_time(t: float) -> None:
-    if t < 0:
-        raise ValueError("O tempo não pode ser negativo.")
+    if not isfinite(t) or t < 0:
+        raise ValueError("O tempo deve ser finito e não negativo.")
 
 
 def spo2_without_oxygen(t: float) -> float:
-    """SpO₂ em piora: parte de 92% e se aproxima de 82%."""
+    """Piora didática: 90% inicialmente, aproximando-se de 85%."""
     _validate_time(t)
-    return 82 + 10 * exp(-t / 6)
+    return 85 + 5 * exp(-t / 6)
 
 
 def spo2_with_oxygen(t: float) -> float:
-    """SpO₂ em recuperação: parte de 92% e se aproxima de 98%."""
+    """Recuperação didática: 90% inicialmente, aproximando-se de 97%."""
     _validate_time(t)
-    return 98 - 6 * exp(-t / 3)
+    return 97 - 7 * exp(-t / 3)
+
+
+def deficit_without_oxygen(t: float) -> float:
+    """Integral de 100 - S(t) de 0 a t, em pontos percentuais × minuto."""
+    _validate_time(t)
+    return 15 * t - 30 * (1 - exp(-t / 6))
+
+
+def deficit_with_oxygen(t: float) -> float:
+    """Integral de 100 - S(t) de 0 a t, em pontos percentuais × minuto."""
+    _validate_time(t)
+    return 3 * t + 21 * (1 - exp(-t / 3))
 
 
 @dataclass(frozen=True)
 class ClinicalScenario:
-    """Dados necessários para calcular e apresentar um cenário."""
-
     function: Callable[[float], float]
+    deficit_integral: Callable[[float], float]
     formula: str
     derivative_formula: str
+    integral_formula: str
     limit: float
     is_recovery: bool
 
 
 SCENARIOS = {
-    "Sem oxigênio (piora)": ClinicalScenario(
+    "Sem intervenção (piora)": ClinicalScenario(
         function=spo2_without_oxygen,
-        formula=r"S(t)=82+10e^{-t/6}",
-        derivative_formula=r"S'(t)=-\frac{10}{6}e^{-t/6}",
-        limit=82.0,
+        deficit_integral=deficit_without_oxygen,
+        formula=r"S(t)=85+5e^{-t/6}",
+        derivative_formula=r"S'(t)=-\frac{5}{6}e^{-t/6}",
+        integral_formula=r"D(T)=\int_0^T(100-S(t))\,dt=15T-30(1-e^{-T/6})",
+        limit=85.0,
         is_recovery=False,
     ),
-    "Com oxigênio (recuperação)": ClinicalScenario(
+    "Após oxigênio (recuperação)": ClinicalScenario(
         function=spo2_with_oxygen,
-        formula=r"S(t)=98-6e^{-t/3}",
-        derivative_formula=r"S'(t)=2e^{-t/3}",
-        limit=98.0,
+        deficit_integral=deficit_with_oxygen,
+        formula=r"S(t)=97-7e^{-t/3}",
+        derivative_formula=r"S'(t)=\frac{7}{3}e^{-t/3}",
+        integral_formula=r"D(T)=\int_0^T(100-S(t))\,dt=3T+21(1-e^{-T/3})",
+        limit=97.0,
         is_recovery=True,
     ),
 }
